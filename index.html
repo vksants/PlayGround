@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f6f5f0" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23c8f36a'/%3E%3Ccircle cx='16' cy='16' r='5' fill='none' stroke='%23202326' stroke-width='3'/%3E%3C/svg%3E" />
+  <title>ROLL — a tiny runner</title>
+  <style>
+    :root { color-scheme: light; --ink:#202326; --muted:#858b8c; --lime:#c8f36a; --paper:#f6f5f0; }
+    * { box-sizing:border-box; }
+    html,body { margin:0; width:100%; height:100%; overflow:hidden; background:var(--paper); font-family:ui-rounded,"SF Pro Rounded",Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); }
+    body { display:grid; place-items:center; }
+    #app { position:relative; width:100%; height:100%; min-height:320px; overflow:hidden; isolation:isolate; }
+    canvas { position:absolute; inset:0; display:block; width:100%; height:100%; touch-action:none; }
+    .topbar { position:absolute; z-index:2; inset: max(24px,env(safe-area-inset-top)) 34px auto; display:flex; align-items:center; justify-content:space-between; pointer-events:none; }
+    .brand { display:flex; align-items:center; gap:11px; font-size:12px; font-weight:850; letter-spacing:.19em; }
+    .brand-mark { width:27px; height:27px; border-radius:50%; background:var(--lime); display:grid; place-items:center; box-shadow:inset -4px -4px 0 #a9d94c; }
+    .brand-mark::after { content:""; width:8px; height:8px; border:2px solid #29302b; border-radius:50%; }
+    .top-note { font-size:10px; font-weight:700; letter-spacing:.18em; color:#94999a; text-transform:uppercase; }
+    .hud { position:absolute; z-index:2; top: max(76px,calc(env(safe-area-inset-top) + 70px)); left:50%; transform:translateX(-50%); display:flex; gap:10px; opacity:0; transition:opacity .25s ease; pointer-events:none; }
+    .hud.show { opacity:1; }
+    .stat { min-width:94px; padding:10px 14px 9px; background:rgba(255,255,255,.72); border:1px solid rgba(32,35,38,.07); border-radius:14px; text-align:center; box-shadow:0 6px 24px #30352d0b; backdrop-filter:blur(8px); }
+    .stat-label { display:block; color:#9a9e9b; font-size:9px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
+    .stat-value { display:block; margin-top:1px; font-size:19px; line-height:1.15; font-weight:850; letter-spacing:-.04em; font-variant-numeric:tabular-nums; }
+    .overlay { position:absolute; z-index:3; inset:0; display:grid; place-items:center; padding:90px 20px 50px; transition:opacity .25s ease, transform .25s ease; }
+    .overlay.hidden { opacity:0; pointer-events:none; transform:translateY(8px); }
+    .card { width:min(440px,100%); text-align:center; }
+    .eyebrow { margin:0 0 15px; color:#89908a; font-size:10px; font-weight:850; letter-spacing:.25em; text-transform:uppercase; }
+    h1 { margin:0; font-size:clamp(54px,10vw,90px); line-height:.82; letter-spacing:-.085em; font-weight:950; }
+    h1 .accent { color:#b5e451; }
+    .subtitle { margin:20px auto 26px; max-width:295px; color:#777d7c; font-size:14px; line-height:1.6; font-weight:500; }
+    .play-button { display:inline-flex; align-items:center; justify-content:center; gap:11px; min-width:176px; height:52px; border:0; border-radius:100px; background:#202326; color:white; font-family:inherit; font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; cursor:pointer; box-shadow:0 8px 0 #d9d8d1,0 13px 25px #2023261c; transition:transform .15s,box-shadow .15s,background .15s; }
+    .play-button:hover { background:#363a3c; transform:translateY(-2px); box-shadow:0 10px 0 #d9d8d1,0 16px 27px #2023261c; }
+    .play-button:active { transform:translateY(4px); box-shadow:0 4px 0 #d9d8d1; }
+    .play-button .arrow { color:var(--lime); font-size:16px; }
+    .hint { margin-top:23px; color:#a0a4a1; font-size:10px; font-weight:750; letter-spacing:.13em; text-transform:uppercase; }
+    .hint kbd { display:inline-block; min-width:23px; margin:0 2px; padding:4px 6px; border:1px solid #dcdcd5; border-radius:6px; color:#707675; font-family:inherit; font-size:9px; font-weight:800; }
+    .footer { position:absolute; z-index:2; bottom:max(22px,env(safe-area-inset-bottom)); left:34px; right:34px; display:flex; justify-content:space-between; color:#a3a6a2; font-size:9px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; pointer-events:none; }
+    .footer .live { display:flex; gap:8px; align-items:center; }
+    .dot { width:6px; height:6px; border-radius:50%; background:#b9e85a; box-shadow:0 0 0 4px #b9e85a2c; }
+    @media (max-width:600px) {
+      .topbar { left:20px; right:20px; }
+      .top-note { font-size:8px; }
+      .hud { top:calc(env(safe-area-inset-top) + 70px); gap:6px; }
+      .stat { min-width:78px; padding:8px 10px; }
+      .stat-value { font-size:17px; }
+      .footer { left:20px; right:20px; bottom:max(14px,env(safe-area-inset-bottom)); }
+      .footer > span:last-child { display:none; }
+      .overlay { padding-top:100px; padding-bottom:60px; }
+      .subtitle { margin-top:15px; margin-bottom:21px; }
+    }
+    @media (max-height:520px) {
+      .topbar { top:12px; } .hud { top:48px; } .footer { bottom:11px; }
+      .overlay { padding:55px 20px 35px; }
+      h1 { font-size:55px; } .eyebrow { margin-bottom:10px; }
+      .subtitle { margin:12px auto 15px; font-size:12px; }
+      .play-button { height:44px; } .hint { margin-top:14px; }
+    }
+  </style>
+</head>
+<body>
+  <main id="app" aria-label="Roll, a one-button ball runner game">
+    <canvas id="game" aria-label="Game scene"></canvas>
+    <div class="topbar">
+      <div class="brand"><span class="brand-mark"></span><span>ROLL / 01</span></div>
+      <div class="top-note">A tiny endless runner</div>
+    </div>
+    <div class="hud" id="hud" aria-live="polite">
+      <div class="stat"><span class="stat-label">Distance</span><span class="stat-value" id="score">0000</span></div>
+      <div class="stat"><span class="stat-label">Best</span><span class="stat-value" id="best">0000</span></div>
+    </div>
+    <section class="overlay" id="overlay">
+      <div class="card">
+        <p class="eyebrow" id="eyebrow">Breathe in. Roll out.</p>
+        <h1 id="title">ROLL<span class="accent">.</span></h1>
+        <p class="subtitle" id="subtitle">One little ball. A very long way to go.<br>Jump the gaps and keep your rhythm.</p>
+        <button class="play-button" id="play"><span id="buttonText">Start rolling</span><span class="arrow">↗</span></button>
+        <div class="hint"><kbd>SPACE</kbd> or <kbd>↑</kbd> to jump &nbsp;·&nbsp; tap anywhere</div>
+      </div>
+    </section>
+    <div class="footer"><span class="live"><i class="dot"></i><span id="status">Ready when you are</span></span><span>Made of pixels &amp; momentum</span></div>
+  </main>
+<script>
+(() => {
+  'use strict';
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+  const app = document.getElementById('app');
+  const overlay = document.getElementById('overlay');
+  const hud = document.getElementById('hud');
+  const scoreEl = document.getElementById('score');
+  const bestEl = document.getElementById('best');
+  const titleEl = document.getElementById('title');
+  const eyebrowEl = document.getElementById('eyebrow');
+  const subtitleEl = document.getElementById('subtitle');
+  const buttonText = document.getElementById('buttonText');
+  const statusEl = document.getElementById('status');
+  const colors = { paper:'#f6f5f0', ink:'#202326', ground:'#363b3a', lime:'#c8f36a', hill1:'#eceee4', hill2:'#e5eadc', hill3:'#dce4d1', white:'#fffefa' };
+  let W=0,H=0,DPR=1, groundY=0, last=0, time=0, distance=0, speed=330, spawnIn=1.1, shake=0, best=0;
+  let state='ready', obstacles=[], particles=[];
+  const ball = { x:0, y:0, r:22, vy:0, rotation:0, onGround:true, squash:1 };
+  try { best = +(localStorage.getItem('roll-best') || 0); } catch (_) {}
+  bestEl.textContent = String(best).padStart(4,'0');
+  const rand = (a,b) => a + Math.random()*(b-a);
+  function resize() {
+    const rect=app.getBoundingClientRect(); W=rect.width; H=rect.height; DPR=Math.min(window.devicePixelRatio||1,2);
+    canvas.width=Math.round(W*DPR); canvas.height=Math.round(H*DPR); ctx.setTransform(DPR,0,0,DPR,0,0);
+    groundY=Math.round(H*.76); ball.x=Math.max(68,W*.19); ball.r=Math.max(17,Math.min(23,H*.046));
+    if (ball.onGround) ball.y=groundY-ball.r;
+    draw();
+  }
+  function start() {
+    if (state==='running') return;
+    obstacles.length=0; particles.length=0; distance=0; speed=330; spawnIn=.8; time=0; shake=0;
+    eyebrowEl.textContent='Breathe in. Roll out.';
+    titleEl.innerHTML='ROLL<span class="accent">.</span>';
+    subtitleEl.innerHTML='One little ball. A very long way to go.<br>Jump the gaps and keep your rhythm.';
+    buttonText.textContent='Start rolling';
+    ball.y=groundY-ball.r; ball.vy=0; ball.onGround=true; ball.rotation=0; ball.squash=1;
+    state='running'; overlay.classList.add('hidden'); hud.classList.add('show'); statusEl.textContent='Keep your rhythm';
+    scoreEl.textContent='0000'; last=performance.now();
+  }
+  function end() {
+    state='over'; shake=9; hud.classList.add('show'); statusEl.textContent='A good little run';
+    const score=Math.floor(distance/100);
+    if(score>best){ best=score; try{localStorage.setItem('roll-best',String(best));}catch(_){} bestEl.textContent=String(best).padStart(4,'0'); }
+    eyebrowEl.textContent='That was a nice little run.';
+    titleEl.innerHTML='OOPS<span class="accent">.</span>';
+    subtitleEl.innerHTML=`You rolled <strong>${score} m</strong> before the bump.<br>Ready for one more?`;
+    buttonText.textContent='Roll again'; overlay.classList.remove('hidden');
+  }
+  function jump() {
+    if(state==='ready'||state==='over'){ start(); return; }
+    if(!ball.onGround)return;
+    ball.vy=-690; ball.onGround=false; ball.squash=.78;
+    for(let i=0;i<5;i++) particles.push({x:ball.x-ball.r*.5,y:groundY-3,vx:rand(-105,10),vy:rand(-180,-35),life:rand(.22,.42),max:.42,r:rand(2,4)});
+  }
+  function handleInput(e) {
+    if(e && (e.code==='Space'||e.code==='ArrowUp'||e.code==='ArrowW')) e.preventDefault();
+    if(e && e.type==='keydown' && e.repeat)return;
+    jump();
+  }
+  document.getElementById('play').addEventListener('click', e=>{e.stopPropagation(); if(state==='ready'||state==='over')start(); else jump();});
+  app.addEventListener('pointerdown', e=>{ if(e.target.closest('button'))return; jump(); });
+  window.addEventListener('keydown',handleInput,{passive:false});
+  window.addEventListener('resize',resize,{passive:true});
+  function addObstacle() {
+    const kind=Math.random()<.67?'spike':'block';
+    const w=kind==='spike'?rand(28,38):rand(25,34), h=kind==='spike'?rand(28,42):rand(30,48);
+    obstacles.push({x:W+30,w,h,kind,passed:false});
+    const gap=rand(260,390)+(speed-330)*.24;
+    spawnIn=gap/speed;
+  }
+  function collide(o) {
+    const left=o.x, right=o.x+o.w, top=groundY-o.h;
+    const bx=ball.x, by=ball.y, br=ball.r*.78;
+    const nearX=Math.max(left,Math.min(bx,right));
+    const nearY=Math.max(top,Math.min(by,groundY));
+    const dx=bx-nearX,dy=by-nearY;
+    return dx*dx+dy*dy<br*br;
+  }
+  function update(dt) {
+    time+=dt;
+    if(state==='running'){
+      distance+=speed*dt; speed=Math.min(560,330+distance*.013);
+      spawnIn-=dt; if(spawnIn<=0)addObstacle();
+      ball.vy+=1750*dt; ball.y+=ball.vy*dt;
+      if(ball.y>=groundY-ball.r){
+        if(!ball.onGround) ball.squash=1.18;
+        ball.y=groundY-ball.r; ball.vy=0; ball.onGround=true;
+      }
+      ball.rotation+=speed*dt/ball.r;
+      ball.squash+=(1-ball.squash)*Math.min(1,dt*12);
+      for(let i=obstacles.length-1;i>=0;i--){const o=obstacles[i];o.x-=speed*dt;if(collide(o)){end();break;}if(o.x+o.w<ball.x&&!o.passed)o.passed=true;if(o.x+o.w<-10)obstacles.splice(i,1);}
+      scoreEl.textContent=String(Math.floor(distance/100)).padStart(4,'0');
+    }
+    for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=600*dt;if(p.life<=0)particles.splice(i,1);}
+    shake=Math.max(0,shake-35*dt);
+  }
+  function hill(points,color,offset) {
+    ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(0,H);
+    const base=groundY+offset;ctx.lineTo(0,base);
+    for(let i=0;i<points.length;i++){const p=points[i];ctx.lineTo(p[0]*W,base-p[1]*H);}
+    ctx.lineTo(W,base);ctx.lineTo(W,H);ctx.closePath();ctx.fill();
+  }
+  function drawBackground() {
+    ctx.fillStyle=colors.paper;ctx.fillRect(0,0,W,H);
+    // Soft, warm sun and three low-poly, procedural hills.
+    const sx=W*.78, sy=H*.25, sr=Math.min(W,H)*.095;
+    ctx.fillStyle='#f0f2e7';ctx.beginPath();ctx.arc(sx,sy,sr*1.55,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#e7edda';ctx.beginPath();ctx.arc(sx,sy,sr,0,Math.PI*2);ctx.fill();
+    hill([[.00,.04],[.13,.13],[.23,.09],[.38,.22],[.49,.12],[.65,.18],[.79,.08],[.92,.17],[1,.09]],colors.hill1,3);
+    hill([[.00,.02],[.16,.11],[.31,.05],[.45,.14],[.58,.08],[.73,.16],[.88,.07],[1,.12]],colors.hill2,8);
+    hill([[.00,.01],[.12,.06],[.24,.03],[.36,.1],[.51,.045],[.66,.095],[.82,.03],[.93,.085],[1,.04]],colors.hill3,3);
+    // A few tiny, static seed-like marks give the landscape scale without clutter.
+    ctx.fillStyle='#d5deca';
+    for(let i=0;i<7;i++){const x=((i*173+W*.07)%W), y=groundY*.71+((i*37)%Math.max(1,H*.11));ctx.beginPath();ctx.ellipse(x,y,2,1,0,0,Math.PI*2);ctx.fill();}
+  }
+  function drawGround() {
+    ctx.fillStyle='#e0e3d8';ctx.fillRect(0,groundY,W,2);
+    ctx.fillStyle=colors.ground;ctx.fillRect(0,groundY+2,W,H-groundY);
+    ctx.fillStyle='#414745';ctx.fillRect(0,groundY+2,W,4);
+    const offset=(distance*.55)%54;
+    ctx.fillStyle='#555c58';
+    for(let x=-offset;x<W+30;x+=54){ctx.fillRect(x,groundY+20,26,2);}
+    ctx.fillStyle='#2e3332';
+    for(let x=-((distance*.22)%86);x<W+10;x+=86){ctx.fillRect(x,groundY+45,3,3);}
+  }
+  function drawBall() {
+    const shadowY=groundY+9, air=Math.max(0,groundY-ball.r-ball.y);
+    ctx.globalAlpha=Math.max(.08,.22-air/260);ctx.fillStyle='#171c19';ctx.beginPath();ctx.ellipse(ball.x+2,shadowY,ball.r*(1+air/100),5,0,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+    ctx.save();ctx.translate(ball.x,ball.y);ctx.rotate(ball.rotation);ctx.scale(1/ball.squash,ball.squash);
+    ctx.fillStyle=colors.lime;ctx.beginPath();ctx.arc(0,0,ball.r,0,Math.PI*2);ctx.fill();
+    // Simple two-tone swash stays inside the ball for a readable rolling cue.
+    ctx.fillStyle='#acd94e';ctx.beginPath();ctx.ellipse(0,ball.r*.48,ball.r*.88,ball.r*.34,0,0,Math.PI);ctx.fill();
+    ctx.fillStyle='#eaffb5';ctx.beginPath();ctx.ellipse(-ball.r*.32,-ball.r*.36,ball.r*.24,ball.r*.12,-.55,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
+  function drawObstacles() {
+    for(const o of obstacles){
+      if(o.kind==='spike'){
+        ctx.fillStyle='#ef8c6b';ctx.beginPath();ctx.moveTo(o.x,groundY);ctx.lineTo(o.x+o.w*.5,groundY-o.h);ctx.lineTo(o.x+o.w,groundY);ctx.closePath();ctx.fill();
+        ctx.fillStyle='#f7b19a';ctx.beginPath();ctx.moveTo(o.x+o.w*.5,groundY-o.h);ctx.lineTo(o.x+o.w*.73,groundY-o.h*.53);ctx.lineTo(o.x+o.w*.42,groundY-o.h*.47);ctx.closePath();ctx.fill();
+      } else {
+        ctx.fillStyle='#829bdf';ctx.beginPath();ctx.roundRect(o.x,groundY-o.h,o.w,o.h,5);ctx.fill();
+        ctx.fillStyle='#a8b8ec';ctx.beginPath();ctx.roundRect(o.x+5,groundY-o.h+5,5,o.h-10,3);ctx.fill();
+        ctx.fillStyle='#677fc3';ctx.fillRect(o.x,groundY-5,o.w,5);
+      }
+    }
+  }
+  function drawParticles(){
+    for(const p of particles){ctx.globalAlpha=Math.max(0,p.life/p.max);ctx.fillStyle=colors.lime;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();}
+    ctx.globalAlpha=1;
+  }
+  function draw() {
+    if(!W||!H)return;
+    ctx.save();if(shake>0)ctx.translate(rand(-shake,shake),rand(-shake*.45,shake*.45));
+    drawBackground();drawGround();drawObstacles();drawParticles();drawBall();ctx.restore();
+  }
+  function frame(now) {
+    const dt=Math.min(.033,Math.max(0,(now-last)/1000||0));last=now;
+    update(dt);draw();requestAnimationFrame(frame);
+  }
+  resize(); requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
